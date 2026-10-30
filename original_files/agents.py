@@ -173,8 +173,9 @@ class EpsilonGreedyAgent(Agent):
         if(random.random() <1-self.epsilon):#take greedy action
             each_average=np.array([])
             for i in range(5):
-                each_average.append(self.historic[i].mean())
-            each_average.argmax()
+                mean=self.historic[i].mean() if historic.size() >0 else 0.0
+                each_average.append(mean)
+            return each_average.argmax()
         else:#take random action
             return int(self.rng.integers(self.n_spots))
         
