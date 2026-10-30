@@ -87,7 +87,6 @@ class ContextualAgent:
     def update(self, x, spot, catch):
         """Called after each day with the conditions, the spot chosen and the catch observed."""
 
-
 def play(agent, bay):
     """Play one full season of bay with agent. Returns the total catch (kg).
 
