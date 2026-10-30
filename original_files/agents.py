@@ -6,7 +6,7 @@ Do NOT modify the classes Agent and ContextualAgent, nor the function play():
 they define how every agent interacts with the simulator, and they are used
 to run your agents during grading.
 
-How an agent works
+How an agent works 
 ------------------
 For each season, play(agent, bay) calls:
 
@@ -158,7 +158,29 @@ class HumanRuleAgent(Agent):
 # Task 4: add below at least two agents implementing methods from the reading
 # (Sutton and Barto, Chapter 2), as subclasses of Agent. Document each class:
 # what it keeps in memory, how it chooses, what its parameters mean.
+class EpsilonGreedyAgent(Agent):
+    def __init__(self, n_spots=5, seed=None,epsilon):
+            self.n_spots = n_spots
+            self.rng = np.random.default_rng(seed)
+            self.epsilon=epsilon
+            self.historic={}
 
+    def reset(self):
+        for i in range(self.n_spots):
+            self.historic[i]=np.array([])
+    
+    def choose(self):# historic {bay_num 1: [catch 1, catch 2 ...catch n ],... bay_num k : [catch 1 ,...,catch l]}
+        if(random.random() <1-self.epsilon):#take greedy action
+            each_average=np.array([])
+            for i in range(5):
+                each_average.append(self.historic[i].mean())
+            each_average.argmax()
+        else:#take random action
+            return int(self.rng.integers(self.n_spots))
+        
+    def update(self,spot,catch):
+        self.historic[spot].append(catch)
+    
 
 # Task 6 (optional): add your contextual agents below, as subclasses of
 # ContextualAgent.
