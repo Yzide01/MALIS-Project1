@@ -31,8 +31,8 @@ Example
     total = play(RandomAgent(seed=0), bay)
 """
 import numpy as np
-
 from fishing import ContextualBay, FishingBay
+from sklearn.linear_model import LinearRegression
 
 # ---------------------------------------------------------------------------
 # Provided: do not modify
@@ -159,7 +159,8 @@ class HumanRuleAgent(Agent):
 # (Sutton and Barto, Chapter 2), as subclasses of Agent. Document each class:
 # what it keeps in memory, how it chooses, what its parameters mean.
 class EpsilonGreedyAgent(Agent):
-    def __init__(self, n_spots=5, seed=None,epsilon):
+    # historic {bay_num 1: [catch 1, catch 2 ...catch n ],... bay_num k : [catch 1 ,...,catch l]}
+    def __init__(self, n_spots=5, seed=None,epsilon=0.5):
             self.n_spots = n_spots
             self.rng = np.random.default_rng(seed)
             self.epsilon=epsilon
@@ -167,16 +168,19 @@ class EpsilonGreedyAgent(Agent):
 
     def reset(self):
         for i in range(self.n_spots):
-            self.historic[i]=np.array([])
+            self.historic[i]=[]
     
-    def choose(self):# historic {bay_num 1: [catch 1, catch 2 ...catch n ],... bay_num k : [catch 1 ,...,catch l]}
-        if(random.random() <1-self.epsilon):#take greedy action
-            each_average=np.array([])
+    def choose(self):
+        # take greedy action
+        if(self.rng.random() <1-self.epsilon):
+            each_average=[]
             for i in range(5):
-                mean=self.historic[i].mean() if historic.size() >0 else 0.0
+                mean=np.array(self.historic[i]).mean() if self.historic[i]!=[] else float('inf')
                 each_average.append(mean)
-            return each_average.argmax()
-        else:#take random action
+            
+            return int(np.array(each_average).argmax())
+        # take random action
+        else:
             return int(self.rng.integers(self.n_spots))
         
     def update(self,spot,catch):
@@ -185,3 +189,63 @@ class EpsilonGreedyAgent(Agent):
 
 # Task 6 (optional): add your contextual agents below, as subclasses of
 # ContextualAgent.
+class ContextualAgent(Agent):
+    # self.training_days : number of days used to traing KNN/Linear Regresssion model
+    def __init__(self, n_spots=5, seed=None,training_prop=0.5):
+        self.n_spots = n_spots
+        self.rng = np.random.default_rng(seed)
+        self.training_days=int(300*training_prop) 
+        self.passed_days=0
+        self.passed_days_on_spot=0
+        self.training_spot=0
+        self.training_time_per_spot=int(self.training_days/self.n_spots)
+        self.Xdata={}
+        self.Ydata={}
+        self.models={}
+        for i in range(self.n_spots):
+            self.Xdata[i]=[]
+            self.Ydata[i]=[]
+        
+    def reset(self):
+        self.passed_days=0
+        self.passed_days_on_spot=0
+        self.training_spot=0
+        for i in range(self.n_spots):
+            self.Xdata[i] = []
+            self.Ydata[i] = []
+
+    def choose(self,data):
+        # data = ["wind_kmh", "waves_m", "tide_m"]
+        # we continue to train our model
+        if(self.passed_days<self.training_days):
+            self.Xdata[self.training_spot].append(data)
+            self.passed_days+=1
+            self.passed_days_on_spot+=1
+            chosen_spot=int(self.training_spot)
+
+            # we change spot
+            if(self.passed_days_on_spot>=self.training_time_per_spot):
+                self.training_spot+=1
+                self.passed_days_on_spot=0
+                return chosen_spot
+            return self.training_spot
+        # predict the best spot 
+        else:
+            prediction_per_spot=[0 for i in range(self.n_spots)]
+            for i in range(self.n_spots):
+                prediction_per_spot[i]=self.models[i].predict([data])
+            best_spot=(np.array(prediction_per_spot)).argmax()
+            self.passed_days+=1
+            return int(best_spot)
+
+
+    def update(self,spot,catch):
+            if(self.passed_days<=self.training_days):
+                self.Ydata[spot].append(catch)
+                # create the model with the data
+                if(self.passed_days==self.training_days):
+                    for i in range(self.n_spots):
+                        Xdata=np.array(self.Xdata[i])
+                        Ydata=np.array(self.Ydata[i])
+                        self.models[i]=LinearRegression()
+                        self.models[i].fit(Xdata,Ydata)
